@@ -4,7 +4,7 @@ add_executable (veloc-backend
 )
 
 # Link the executable to the necessary libraries.
-target_link_libraries (veloc-backend veloc-modules ${MPI_CXX_LIBRARIES} rt)
+target_link_libraries (veloc-backend veloc-modules ${MPI_CXX_LIBRARIES} rt ${SZ_DIR} ${ZSTD_DIR} ${ZLIB_DIR})
 
 # Install executables
 install (TARGETS veloc-backend

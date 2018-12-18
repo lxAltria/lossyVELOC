@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <vector>
 
 #include "sz.h"
 
@@ -33,7 +34,7 @@ class compression_module_t {
     double error_bound = 0;
     std::vector<int> dimensions;
     int compress(void * data, unsigned char ** compressed);
-    int decompress(unsigned char * compressed, void * data);
+    int decompress(unsigned char * compressed, void ** data);
 public:
     compression_module_t(const config_t &c);
     ~compression_module_t();

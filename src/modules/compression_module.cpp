@@ -6,9 +6,10 @@
 #define __DEBUG
 #include "common/debug.hpp"
 
-static int compress(void * data, unsigned char ** compressed_data){
+int compression_module_t::compress(void * data, unsigned char ** compressed_data){
 	if(error_bound == 0){
 		// lossless (zstd)
+		// compressed_size = sz_lossless_compress(confparams_cpr->losslessCompressor, confparams_cpr->gzipMode, data, data_size, compressed_data);
 	}
 	else{
 		// lossy (sz)
@@ -17,9 +18,10 @@ static int compress(void * data, unsigned char ** compressed_data){
 	return VELOC_SUCCESS;
 }
 
-static int decomress(unsigned char * compressed_data, void ** data){
+int compression_module_t::decompress(unsigned char * compressed_data, void ** data){
 	if(error_bound == 0){
 		// lossless (zstd)
+		// size_t size = sz_lossless_decompress(confparams_dec->losslessCompressor, compressed_data, (unsigned long)compressed_size, data, (unsigned long)data_size*sizeof(double)+4+MetaDataByteLength+exe_params->SZ_SIZE_TYPE);
 	}
 	else{
 		// lossy (sz)
@@ -73,11 +75,11 @@ compression_module_t::compression_module_t(const config_t &c) : cfg(c) {
     }
 }
 
-transfer_module_t::~transfer_module_t() {
+compression_module_t::~compression_module_t() {
     SZ_Finalize();
 }
 
-int transfer_module_t::process_command(const command_t &c) {
+int compression_module_t::process_command(const command_t &c) {
     std::string local = c.filename(cfg.get("scratch"));
 
     switch (c.command) {
@@ -101,7 +103,7 @@ int transfer_module_t::process_command(const command_t &c) {
 		last_timestamp[c.unique_id] = t + std::chrono::seconds(interval);
 	}
 	if(use_sz){
-		int fd = open(local, O_RDWR);
+		int fd = open(local.c_str(), O_RDWR);
 		struct stat st;
 		fstat(fd, &st);
 		void * data = mmap(NULL, st.st_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
@@ -118,10 +120,10 @@ int transfer_module_t::process_command(const command_t &c) {
 	if (interval < 0)
 	    return VELOC_SUCCESS;
 	if (use_sz){
-		int fd = open(local, O_RDWR);
+		int fd = open(local.c_str(), O_RDWR);
 		struct stat st;
 		fstat(fd, &st);
-		compressed_size = st.st_size
+		compressed_size = st.st_size;
 		void * compressed_data = mmap(NULL, data_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
 		void * data = NULL;
 		decompress((unsigned char *)compressed_data, &data);

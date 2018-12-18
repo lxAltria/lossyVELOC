@@ -29,6 +29,11 @@ include_directories(${AXL_INCLUDE_DIRS})
 find_package(ER REQUIRED)
 include_directories(${ER_INCLUDE_DIRS})
 
+find_library(SZ_DIR SZ)
+find_library(ZSTD_DIR zstd)
+find_library(ZLIB_DIR zlib)
+include_directories(/home/xin/utils/sz_master/include)
+
 # -----------------------------------------------------------------------------------
 include_directories(${VELOC_SOURCE_DIR})
 add_subdirectory (src)
