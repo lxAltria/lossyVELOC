@@ -29,12 +29,11 @@ class compression_module_t {
     bool use_sz = false;
     int data_type = SZ_DOUBLE;
     int error_bound_mode = REL;
-    size_t data_size = 0;
-    size_t compressed_size = 0;
     double error_bound = 0;
-    std::vector<int> dimensions;
-    int compress(void * data, unsigned char ** compressed);
-    int decompress(unsigned char * compressed, void ** data);
+    size_t origin_data_size = 0;
+    std::vector<int> dimensions = std::vector<int>(5, 0);
+    size_t compress(void * data, int data_type, size_t data_size, unsigned char ** compressed_data);
+    void decompress(unsigned char * compressed, int data_type, size_t compressed_size, size_t data_size, void ** data);
 public:
     compression_module_t(const config_t &c);
     ~compression_module_t();

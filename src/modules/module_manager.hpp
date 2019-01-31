@@ -28,6 +28,7 @@ public:
     module_manager_t();
     ~module_manager_t();
     void add_default_modules(const config_t &cfg, MPI_Comm comm, bool ec_active);
+    void add_compression_modules(const config_t &cfg, MPI_Comm comm);
     void add_module(const method_t &m) {
 	sig.push_back(m);
     }

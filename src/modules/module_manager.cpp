@@ -25,6 +25,11 @@ void module_manager_t::add_default_modules(const config_t &cfg, MPI_Comm comm, b
     add_module([this](const command_t &c) { return transfer->process_command(c); });
 }
 
+void module_manager_t::add_compression_modules(const config_t &cfg, MPI_Comm comm) {
+    compression = new compression_module_t(cfg);
+    add_module([this](const command_t &c) { return compression->process_command(c);});
+}
+
 module_manager_t::~module_manager_t() {
     delete watchdog;
     delete compression;

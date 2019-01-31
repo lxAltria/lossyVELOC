@@ -20,8 +20,11 @@ veloc_client_t::veloc_client_t(MPI_Comm c, const char *cfg_file) :
     if (cfg.is_sync()) {
 	modules = new module_manager_t();
 	modules->add_default_modules(cfg, comm, true);
-    } else
+    } else{
 	queue = new veloc_ipc::shm_queue_t<command_t>(std::to_string(rank).c_str());
+	modules = new module_manager_t();
+	modules->add_compression_modules(cfg, comm);
+    }
     ec_active = run_blocking(command_t(rank, command_t::INIT, 0, "")) > 0;
     DBG("VELOC initialized");
 }
@@ -98,9 +101,11 @@ bool veloc_client_t::checkpoint_mem() {
 	f.open(current_ckpt.filename(cfg.get("scratch")), std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
 	size_t regions_size = mem_regions.size();
 	f.write((char *)&regions_size, sizeof(size_t));
+	INFO("num regions " << regions_size);
 	for (auto &e : mem_regions) {
 	    f.write((char *)&(e.first), sizeof(int));
 	    f.write((char *)&(e.second.second), sizeof(size_t));
+	    INFO("regions size " << e.second.second);
 	}
         for (auto &e : mem_regions)
 	    f.write((char *)e.second.first, e.second.second);
@@ -185,6 +190,10 @@ bool veloc_client_t::recover_mem(int mode, std::set<int> &ids) {
     std::ifstream f;
     f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
     try {
+	INFO("reading from scratch");
+	command_t decompress_command = command_t(current_ckpt.unique_id, command_t::DECOMPRESS, current_ckpt.version, current_ckpt.name);
+	modules->notify_command(decompress_command);
+	INFO("decompression done");
 	f.open(current_ckpt.filename(cfg.get("scratch")), std::ios_base::in | std::ios_base::binary);
 	size_t no_regions, region_size;
 	int id;
