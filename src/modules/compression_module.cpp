@@ -50,7 +50,7 @@ compression_module_t::compression_module_t(const config_t &c) : cfg(c) {
     //}
     //if (!cfg.get_optional("error_bound", error_bound)){
     	error_bound = 1e-8;
-    	INFO("Set error bound to default (0)");
+    	INFO("Set error bound to default (1e-8)");
     //}
     int ret = SZ_Init(NULL);
     if (ret){
@@ -101,34 +101,41 @@ int compression_module_t::process_command(const command_t &c) {
 		INFO("num_regions: " << num_regions);
 		data_pos += sizeof(size_t);
 		std::vector<size_t> variable_sizes = std::vector<size_t>(num_regions, 0);
+		// NWChem
+		// num_region = 1
+		// region_content = 16 Bytes integer + other doubles 
+		size_t offset = 16; // offset for the first two long integer
 		for(size_t i=0; i<num_regions; i++){
 			// skip id
 			data_pos += sizeof(int);
-			if(i) variable_sizes[i] = *((size_t *) data_pos) / sizeof(double);
-                        else variable_sizes[i] = *((size_t *) data_pos) / sizeof(int);
+			variable_sizes[i] = (*((size_t *) data_pos));
 			INFO("size " << i << ": " << variable_sizes[i]);
 			data_pos += sizeof(size_t);
 		}
 		// record the starting point of data blocks
 		unsigned char * data_block_pos = data_pos;
 		for(size_t i=0; i<num_regions; i++){
-			if(variable_sizes[i] > 100){
+			if(variable_sizes[i] > 1000){
 				// here we assume that compressed file size is usually less than original size - sizeof(size_t)
+				// skip the offset
+				if(data_block_pos != data_pos) memmove(data_block_pos, data_pos, offset);
+				data_pos += offset;
+				data_block_pos += offset;
 				unsigned char * compressed = NULL;
-				dimensions[0] = variable_sizes[i];
-				size_t compressed_size = compress(data_pos, SZ_DOUBLE, variable_sizes[i]*sizeof(double), &compressed);
+				dimensions[0] = (variable_sizes[i] - offset) / sizeof(double);
+				size_t compressed_size = compress(data_pos, SZ_DOUBLE, variable_sizes[i] - offset, &compressed);
 				memcpy(data_block_pos, &compressed_size, sizeof(size_t));
 				data_block_pos += sizeof(size_t);
 				INFO("data block pos " << data_block_pos - (unsigned char *) data << ", compressed_size " << compressed_size);
 				memcpy(data_block_pos, compressed, compressed_size);
 				data_block_pos += compressed_size;
-				data_pos += variable_sizes[i] * sizeof(double);
+				data_pos += variable_sizes[i] - offset;
 				free(compressed);
 			}
 			else{
-				// in heatdis, skipped var is int
-				data_block_pos += variable_sizes[i] * sizeof(int);
-				data_pos += variable_sizes[i] * sizeof(int);
+				if(data_block_pos != data_pos) memmove(data_block_pos, data_pos, variable_sizes[i]);
+				data_block_pos += variable_sizes[i];
+				data_pos += variable_sizes[i];
 			}
 		}
 		INFO("compressed size: " << data_block_pos - (unsigned char *) data << ", total size " << data_pos - (unsigned char *) data);
@@ -177,11 +184,14 @@ int compression_module_t::process_command(const command_t &c) {
 		size_t num_regions = *((size_t *) comp_data_pos);
 		comp_data_pos += sizeof(size_t);
 		std::vector<size_t> variable_sizes = std::vector<size_t>(num_regions, 0);
+		// NWChem
+		// num_region = 1
+		// region_content = 16 Bytes integer + other doubles 
+		size_t offset = 16; // offset for the first two long integer
 		for(size_t i=0; i<num_regions; i++){
 			// skip id
 			comp_data_pos += sizeof(int);
-			if(i) variable_sizes[i] = *((size_t *) comp_data_pos) / sizeof(double);
-			else variable_sizes[i] = *((size_t *) comp_data_pos) / sizeof(int);
+			variable_sizes[i] = *((size_t *) comp_data_pos);
 			INFO("size " << i << ": " << variable_sizes[i]);
 			comp_data_pos += sizeof(size_t);
 		}
@@ -189,13 +199,18 @@ int compression_module_t::process_command(const command_t &c) {
 		unsigned char * data_pos = (unsigned char *) data + (comp_data_pos - compressed_data_buf);
 		for(size_t i=0; i<num_regions; i++){
 			INFO("decompress " << i << "-th variable");
-			if(variable_sizes[i] > 100){
-				dimensions[0] = variable_sizes[i];
+			if(variable_sizes[i] > 1000){
+				// skip the offset
+				memcpy(data_pos, comp_data_block_pos, offset);
+				comp_data_block_pos += offset;
+				data_pos += offset;
+
+				dimensions[0] = (variable_sizes[i] - offset) / sizeof(double);
 				size_t compressed_size = 0;
 				memcpy(&compressed_size, comp_data_block_pos, sizeof(size_t));
 				comp_data_block_pos += sizeof(size_t);
 				void * decompressed_buf = NULL;
-				size_t origin_size = variable_sizes[i]*sizeof(double);
+				size_t origin_size = variable_sizes[i] - offset;
 				//INFO("compressed size " << compressed_size << ", origin size " << origin_size);
 				decompress(comp_data_block_pos, data_type, compressed_size, origin_size, &decompressed_buf);
 				memcpy(data_pos, decompressed_buf, origin_size);
@@ -204,9 +219,9 @@ int compression_module_t::process_command(const command_t &c) {
 				free(decompressed_buf);
 			}
 			else{
-				// in heatdis, skipped var is int
-				comp_data_block_pos += variable_sizes[i] * sizeof(int);
-				data_pos += variable_sizes[i] * sizeof(int);
+				memcpy(data_pos, comp_data_block_pos, variable_sizes[i]);
+				comp_data_block_pos += variable_sizes[i];
+				data_pos += variable_sizes[i];
 			}
 		}
 		free(compressed_data_buf);
